@@ -12,14 +12,20 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Robust SQLite path resolution:
-// When using SQLite, resolve relative file paths to absolute path to avoid CWD mismatch between Prisma CLI and runtime.
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:')) {
-  const prismaDb = path.resolve(__dirname, '../prisma/dev.db');
-  const rootDb = path.resolve(__dirname, '../dev.db');
-  const targetDb = fs.existsSync(prismaDb) ? prismaDb : rootDb;
-  process.env.DATABASE_URL = `file:${targetDb.replace(/\\/g, '/')}`;
-}
+// Resolve relative SQLite file path to an absolute path so Prisma CLI and runtime always use the exact same DB.
+const prismaDb = path.resolve(__dirname, '../prisma/dev.db');
+const rootDb = path.resolve(__dirname, '../dev.db');
+const targetDb = fs.existsSync(prismaDb) ? prismaDb : rootDb;
+const sqliteUrl = `file:${targetDb.replace(/\\/g, '/')}`;
 
-export const prisma = new PrismaClient();
+process.env.DATABASE_URL = sqliteUrl;
+
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: sqliteUrl,
+    },
+  },
+});
 
 export default prisma;
