@@ -5,6 +5,11 @@ import path from 'path';
 
 dotenv.config();
 
+// Fallback environment variable defaults
+if (!process.env.PORT) process.env.PORT = '5000';
+if (!process.env.JWT_SECRET) process.env.JWT_SECRET = 'super_secret_campus_connect_jwt_key_2026';
+
+import prisma from './db';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import departmentRoutes from './routes/departments';
@@ -26,7 +31,7 @@ import auditRoutes from './routes/audit';
 import backupRoutes from './routes/backup';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 // Middleware
 app.use(cors({
@@ -41,9 +46,19 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', async (req: Request, res: Response) => {
+  let dbStatus = 'ONLINE';
+  let userCount = 0;
+  try {
+    userCount = await prisma.user.count();
+  } catch (err: any) {
+    dbStatus = 'OFFLINE_OR_PENDING_MIGRATION';
+  }
+
   res.json({
     status: 'ONLINE',
+    database: dbStatus,
+    usersRegistered: userCount,
     service: 'CampusConnect API',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
@@ -81,7 +96,24 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 CampusConnect REST API server listening at http://localhost:${PORT}`);
   console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
+
+  try {
+    const userCount = await prisma.user.count();
+    console.log(`📊 Connected to Database (${userCount} active users loaded)`);
+  } catch (dbErr: any) {
+    console.warn(`⚠️ Warning: Database tables not loaded. Please run 'npm run setup' to generate and seed data.`);
+  }
 });
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  server.close(() => process.exit(0));
+});
+process.on('SIGINT', () => {
+  server.close(() => process.exit(0));
+});
+
+export default app;
