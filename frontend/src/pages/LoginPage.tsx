@@ -90,7 +90,7 @@ export const LoginPage: React.FC = () => {
           setBackendStatus('online');
           return;
         }
-      } catch {}
+      } catch { }
     }
     // If local backend is unreachable, gracefully fall back to standalone database
     setBackendStatus('standalone');
@@ -218,11 +218,10 @@ export const LoginPage: React.FC = () => {
         {/* Server Status Pill */}
         <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] font-medium text-slate-300">
           <span
-            className={`w-2 h-2 rounded-full ${
-              backendStatus === 'online' || backendStatus === 'standalone'
-                ? 'bg-emerald-500 animate-pulse'
-                : 'bg-amber-400'
-            }`}
+            className={`w-2 h-2 rounded-full ${backendStatus === 'online' || backendStatus === 'standalone'
+              ? 'bg-emerald-500 animate-pulse'
+              : 'bg-amber-400'
+              }`}
           />
           {backendStatus === 'online' && 'Database & Backend Online (Port 5000)'}
           {backendStatus === 'standalone' && 'Built-in Database Online (Standalone Cloud Active)'}
@@ -247,11 +246,10 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDemoCredentials('admin@college.com', 'Admin@123')}
-                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${
-                  email === 'admin@college.com'
-                    ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
-                    : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                }`}
+                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${email === 'admin@college.com'
+                  ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  }`}
               >
                 <span>👑 <strong>Admin</strong></span>
                 <span className="text-[10px] text-slate-400">Superuser</span>
@@ -260,11 +258,10 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDemoCredentials('faculty@college.com', 'Faculty@123')}
-                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${
-                  email === 'faculty@college.com'
-                    ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
-                    : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                }`}
+                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${email === 'faculty@college.com'
+                  ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  }`}
               >
                 <span>🎓 <strong>Faculty</strong></span>
                 <span className="text-[10px] text-slate-400">Academics</span>
@@ -273,11 +270,10 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDemoCredentials('student@college.com', 'Student@123')}
-                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${
-                  email === 'student@college.com'
-                    ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
-                    : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                }`}
+                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${email === 'student@college.com'
+                  ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  }`}
               >
                 <span>🎒 <strong>Student</strong></span>
                 <span className="text-[10px] text-slate-400">Portal</span>
@@ -286,11 +282,10 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDemoCredentials('staff@college.com', 'Staff@123')}
-                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${
-                  email === 'staff@college.com'
-                    ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
-                    : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                }`}
+                className={`px-3 py-2 rounded-xl border text-left transition flex items-center justify-between ${email === 'staff@college.com'
+                  ? 'border-blue-500 bg-blue-50/80 text-blue-800 font-bold shadow-sm'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  }`}
               >
                 <span>📋 <strong>Staff</strong></span>
                 <span className="text-[10px] text-slate-400">Library/Hostel</span>
@@ -447,33 +442,30 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRegRole('STUDENT')}
-                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${
-                      regRole === 'STUDENT'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${regRole === 'STUDENT'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
                   >
                     🎒 Student
                   </button>
                   <button
                     type="button"
                     onClick={() => setRegRole('FACULTY')}
-                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${
-                      regRole === 'FACULTY'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${regRole === 'FACULTY'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
                   >
                     🎓 Faculty
                   </button>
                   <button
                     type="button"
                     onClick={() => setRegRole('STAFF')}
-                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${
-                      regRole === 'STAFF'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`py-2 text-xs font-bold rounded-xl border text-center transition ${regRole === 'STAFF'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
                   >
                     📋 Staff
                   </button>
@@ -680,10 +672,12 @@ export const LoginPage: React.FC = () => {
                   type="email"
                   required
                   value={forgotEmail}
+
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="e.g. student@college.com"
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                 />
+
               </div>
 
               <div>

@@ -1,0 +1,11 @@
+{
+  "name": "campusconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CampusConnect - Smart College Management & Student Utility Platform",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev"
+  }
+}
