@@ -65,22 +65,35 @@ export const LoginPage: React.FC = () => {
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
 
-  // Check backend server connectivity on mount
+  // Check backend server connectivity on mount and poll every 2.5s
   useEffect(() => {
     checkHealth();
     loadDepartments();
+    const interval = setInterval(() => {
+      checkHealth();
+    }, 2500);
+    return () => clearInterval(interval);
   }, []);
 
   const checkHealth = async () => {
     try {
+      // First try relative /api/health (proxied by Vite)
       const res = await fetch('/api/health');
       if (res.ok) {
         setBackendStatus('online');
-      } else {
-        setBackendStatus('offline');
+        return;
       }
     } catch {
-      setBackendStatus('offline');
+      // Fallback: try direct localhost:5000 in case proxy is delayed
+      try {
+        const directRes = await fetch('http://127.0.0.1:5000/api/health');
+        if (directRes.ok) {
+          setBackendStatus('online');
+          return;
+        }
+      } catch {
+        setBackendStatus('offline');
+      }
     }
   };
 
