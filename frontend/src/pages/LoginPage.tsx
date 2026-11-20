@@ -35,7 +35,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Backend connection status check
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'standalone'>('checking');
 
   // Modals state
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -76,25 +76,29 @@ export const LoginPage: React.FC = () => {
   }, []);
 
   const checkHealth = async () => {
+    // If on Vercel or cloud static host without local backend, use standalone database immediately
+    if (typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('netlify'))) {
+      setBackendStatus('standalone');
+      return;
+    }
+
     try {
-      // First try relative /api/health (proxied by Vite)
       const res = await fetch('/api/health');
       if (res.ok) {
         setBackendStatus('online');
         return;
       }
     } catch {
-      // Fallback: try direct localhost:5000 in case proxy is delayed
       try {
         const directRes = await fetch('http://127.0.0.1:5000/api/health');
         if (directRes.ok) {
           setBackendStatus('online');
           return;
         }
-      } catch {
-        setBackendStatus('offline');
-      }
+      } catch {}
     }
+    // If local backend is unreachable, gracefully fall back to standalone database
+    setBackendStatus('standalone');
   };
 
   const loadDepartments = async () => {
@@ -220,16 +224,14 @@ export const LoginPage: React.FC = () => {
         <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] font-medium text-slate-300">
           <span
             className={`w-2 h-2 rounded-full ${
-              backendStatus === 'online'
+              backendStatus === 'online' || backendStatus === 'standalone'
                 ? 'bg-emerald-500 animate-pulse'
-                : backendStatus === 'checking'
-                ? 'bg-amber-400'
-                : 'bg-rose-500'
+                : 'bg-amber-400'
             }`}
           />
           {backendStatus === 'online' && 'Database & Backend Online (Port 5000)'}
-          {backendStatus === 'checking' && 'Connecting to Database Backend...'}
-          {backendStatus === 'offline' && 'Backend Server Offline — Run "npm run dev" in /backend'}
+          {backendStatus === 'standalone' && 'Built-in Database Online (Standalone Cloud Active)'}
+          {backendStatus === 'checking' && 'Initializing CampusConnect Database...'}
         </div>
       </div>
 

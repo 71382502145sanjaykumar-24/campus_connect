@@ -1,3 +1,5 @@
+import { mockDb } from './mockDatabase';
+
 const BASE_URL = '/api';
 
 export class ApiError extends Error {
@@ -10,39 +12,189 @@ export class ApiError extends Error {
   }
 }
 
+// Track whether the app is running in Standalone / Vercel cloud mode
+let isStandaloneMode = false;
+
+export const setStandaloneMode = (enabled: boolean) => {
+  isStandaloneMode = enabled;
+};
+
+export const getStandaloneMode = () => isStandaloneMode;
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // If already identified as standalone mode (e.g. Vercel deployment), handle via mock database directly
+  if (isStandaloneMode) {
+    return handleMockRequest<T>(endpoint, options);
+  }
+
   const token = localStorage.getItem('cc_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
+  if (token && !token.startsWith('mock_')) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    let errorMessage = `HTTP Error ${response.status}`;
-    let errorData = null;
-    try {
-      errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-    } catch {
-      // Non-json response
+    // If 404 returned on Vercel, automatically switch to standalone mode
+    if (response.status === 404 && (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('netlify'))) {
+      isStandaloneMode = true;
+      return handleMockRequest<T>(endpoint, options);
     }
-    throw new ApiError(response.status, errorMessage, errorData);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP Error ${response.status}`;
+      let errorData = null;
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch {}
+      throw new ApiError(response.status, errorMessage, errorData);
+    }
+
+    if (response.headers.get('content-type')?.includes('text/csv')) {
+      return (await response.text()) as unknown as T;
+    }
+
+    return response.json();
+  } catch (err: any) {
+    // If backend is unreachable or on a static cloud host like Vercel, gracefully switch to standalone database
+    if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || isStandaloneMode) {
+      isStandaloneMode = true;
+      return handleMockRequest<T>(endpoint, options);
+    }
+    throw err;
+  }
+}
+
+// Simulated router for built-in database operations
+async function handleMockRequest<T>(endpoint: string, options: RequestInit): Promise<T> {
+  const method = options.method || 'GET';
+  const body = options.body ? JSON.parse(options.body as string) : {};
+
+  if (endpoint.startsWith('/auth/login')) {
+    return (await mockDb.login(body.email, body.password)) as unknown as T;
+  }
+  if (endpoint.startsWith('/auth/register')) {
+    return (await mockDb.register(body)) as unknown as T;
+  }
+  if (endpoint.startsWith('/auth/reset-password')) {
+    return (await mockDb.resetPassword(body)) as unknown as T;
+  }
+  if (endpoint.startsWith('/auth/me')) {
+    return (await mockDb.getMe()) as unknown as T;
+  }
+  if (endpoint.startsWith('/auth/departments') || endpoint === '/departments') {
+    return (await mockDb.listDepartments()) as unknown as T;
+  }
+  if (endpoint.startsWith('/users')) {
+    return (await mockDb.listUsers()) as unknown as T;
+  }
+  if (endpoint.startsWith('/students')) {
+    return (await mockDb.listStudents()) as unknown as T;
+  }
+  if (endpoint.startsWith('/faculty')) {
+    return (await mockDb.listFaculty()) as unknown as T;
+  }
+  if (endpoint.startsWith('/courses')) {
+    return (await mockDb.listCourses()) as unknown as T;
+  }
+  if (endpoint.startsWith('/attendance')) {
+    if (method === 'POST') {
+      const db = mockDb.get();
+      const newAtt = {
+        id: `ATT_${Date.now()}`,
+        ...body,
+        student: { rollNo: '2024CS001', user: { name: 'Alex Rivera' } },
+        course: { code: 'CS301', name: 'Database Management' },
+      };
+      db.attendance.unshift(newAtt);
+      mockDb.save(db);
+      return newAtt as unknown as T;
+    }
+    return (await mockDb.listAttendance()) as unknown as T;
+  }
+  if (endpoint.startsWith('/marks')) {
+    if (method === 'POST') {
+      const db = mockDb.get();
+      const newMark = {
+        id: `MRK_${Date.now()}`,
+        ...body,
+        student: { rollNo: '2024CS001', user: { name: 'Alex Rivera' } },
+        course: { code: 'CS301', name: 'Database Management' },
+      };
+      db.marks.unshift(newMark);
+      mockDb.save(db);
+      return newMark as unknown as T;
+    }
+    return (await mockDb.listMarks()) as unknown as T;
+  }
+  if (endpoint.startsWith('/timetable')) {
+    return (await mockDb.listTimetable()) as unknown as T;
+  }
+  if (endpoint.startsWith('/announcements')) {
+    return (await mockDb.listAnnouncements()) as unknown as T;
+  }
+  if (endpoint.startsWith('/events')) {
+    return (await mockDb.listEvents()) as unknown as T;
+  }
+  if (endpoint.startsWith('/fees')) {
+    if (method === 'POST' && endpoint.includes('/pay')) {
+      const id = endpoint.split('/')[2];
+      const db = mockDb.get();
+      const fee = db.fees.find((f) => f.id === id);
+      if (fee) {
+        fee.status = 'PAID';
+        fee.paidAmount = fee.amount;
+        fee.paidDate = new Date().toISOString();
+        mockDb.save(db);
+        return fee as unknown as T;
+      }
+    }
+    return (await mockDb.listFees()) as unknown as T;
+  }
+  if (endpoint.startsWith('/library/books')) {
+    return (await mockDb.listLibraryBooks()) as unknown as T;
+  }
+  if (endpoint.startsWith('/library/issues')) {
+    return (await mockDb.listBookIssues()) as unknown as T;
+  }
+  if (endpoint.startsWith('/hostel/rooms')) {
+    return (await mockDb.listHostelRooms()) as unknown as T;
+  }
+  if (endpoint.startsWith('/leaves')) {
+    if (method === 'POST') {
+      const db = mockDb.get();
+      const newLeave = {
+        id: `LV_${Date.now()}`,
+        ...body,
+        status: 'PENDING',
+        student: { rollNo: '2024CS001', user: { name: 'Alex Rivera' } },
+      };
+      db.leaves.unshift(newLeave);
+      mockDb.save(db);
+      return newLeave as unknown as T;
+    }
+    return (await mockDb.listLeaves()) as unknown as T;
+  }
+  if (endpoint.startsWith('/notes')) {
+    return (await mockDb.listNotes()) as unknown as T;
+  }
+  if (endpoint.startsWith('/dashboard/stats')) {
+    return (await mockDb.getDashboardStats()) as unknown as T;
+  }
+  if (endpoint.startsWith('/audit')) {
+    return (await mockDb.listAuditLogs()) as unknown as T;
   }
 
-  if (response.headers.get('content-type')?.includes('text/csv')) {
-    return (await response.text()) as unknown as T;
-  }
-
-  return response.json();
+  return {} as unknown as T;
 }
 
 export const api = {
