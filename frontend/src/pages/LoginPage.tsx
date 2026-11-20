@@ -34,8 +34,8 @@ export const LoginPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Backend connection status check
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'standalone'>('checking');
+  // Backend connection status check - default to online immediately for zero wait
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'standalone'>('online');
 
   // Modals state
   const [showRegisterModal, setShowRegisterModal] = useState(false);
