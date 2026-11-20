@@ -1,0 +1,508 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                 @id @default(uuid()) @db.VarChar(36)
+  email                String                 @unique @db.VarChar(191)
+  passwordHash         String                 @db.VarChar(255)
+  role                 String                 @default("STUDENT") @db.VarChar(32)
+  firstName            String                 @db.VarChar(100)
+  lastName             String                 @db.VarChar(100)
+  phone                String?                @db.VarChar(20)
+  avatar               String?                @db.VarChar(255)
+  isActive             Boolean                @default(true)
+  resetPasswordToken   String?                @db.VarChar(255)
+  resetPasswordExpires DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  studentProfile       Student?
+  facultyProfile       Faculty?
+  announcements        Announcement[]
+  eventsCreated        Event[]
+  eventRegistrations   EventRegistration[]
+  bookTransactions     BookTransaction[]
+  serviceRequests      ServiceRequest[]
+  complaints           GrievanceComplaint[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  placementsCreated    Placement[]
+}
+
+model Department {
+  id          String         @id @default(uuid()) @db.VarChar(36)
+  code        String         @unique @db.VarChar(20)
+  name        String         @db.VarChar(150)
+  description String?        @db.Text
+  hodName     String?        @db.VarChar(100)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  courses       Course[]
+  students      Student[]
+  faculty       Faculty[]
+  subjects      Subject[]
+  announcements Announcement[]
+  timetables    Timetable[]
+  assignments   Assignment[]
+}
+
+model Course {
+  id            String      @id @default(uuid()) @db.VarChar(36)
+  code          String      @unique @db.VarChar(30)
+  name          String      @db.VarChar(150)
+  degree        String      @db.VarChar(50)
+  durationYears Int         @default(4)
+  departmentId  String      @db.VarChar(36)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  students      Student[]
+  subjects      Subject[]
+  timetables    Timetable[]
+}
+
+model Subject {
+  id           String      @id @default(uuid()) @db.VarChar(36)
+  code         String      @unique @db.VarChar(30)
+  name         String      @db.VarChar(150)
+  semester     Int         @default(1)
+  credits      Int         @default(3)
+  departmentId String      @db.VarChar(36)
+  courseId     String?     @db.VarChar(36)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  course       Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  attendances  Attendance[]
+  internalMarks InternalMark[]
+  timetables   Timetable[]
+  assignments  Assignment[]
+  examinations Examination[]
+}
+
+model Student {
+  id               String                 @id @default(uuid()) @db.VarChar(36)
+  userId           String                 @unique @db.VarChar(36)
+  registerNumber   String                 @unique @db.VarChar(50)
+  studentId        String                 @unique @db.VarChar(50)
+  departmentId     String                 @db.VarChar(36)
+  courseId         String                 @db.VarChar(36)
+  year             Int                    @default(1)
+  semester         Int                    @default(1)
+  section          String                 @default("A") @db.VarChar(10)
+  dateOfJoining    DateTime               @default(now())
+  dob              DateTime?
+  gender           String?                @db.VarChar(20)
+  bloodGroup       String?                @db.VarChar(10)
+  address          String?                @db.Text
+  guardianName     String?                @db.VarChar(100)
+  guardianPhone    String?                @db.VarChar(20)
+  cgpa             Float                  @default(0.0)
+  skills           String?                @db.Text
+  certifications   String?                @db.Text
+  projects         String?                @db.Text
+  achievements     String?                @db.Text
+  resumeUrl        String?                @db.VarChar(255)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department       Department             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  course           Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attendances      Attendance[]
+  internalMarks    InternalMark[]
+  semesterResults  SemesterResult[]
+  submissions      AssignmentSubmission[]
+  applications     PlacementApplication[]
+  certificates     Certificate[]
+}
+
+model Faculty {
+  id               String       @id @default(uuid()) @db.VarChar(36)
+  userId           String       @unique @db.VarChar(36)
+  facultyId        String       @unique @db.VarChar(50)
+  departmentId     String       @db.VarChar(36)
+  designation      String       @db.VarChar(100)
+  qualification    String?      @db.VarChar(100)
+  specialization   String?      @db.VarChar(150)
+  joiningDate      DateTime     @default(now())
+  officeRoom       String?      @db.VarChar(50)
+  cabinPhone       String?      @db.VarChar(20)
+  responsibilities String?      @db.Text
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department       Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  timetables       Timetable[]
+  assignments      Assignment[]
+}
+
+model Attendance {
+  id                 String       @id @default(uuid()) @db.VarChar(36)
+  studentId          String       @db.VarChar(36)
+  subjectId          String       @db.VarChar(36)
+  date               DateTime
+  status             String       @default("PRESENT") @db.VarChar(20)
+  session            String       @default("FORENOON") @db.VarChar(20)
+  remarks            String?      @db.VarChar(255)
+  markedByFacultyId  String?      @db.VarChar(36)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  student            Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject            Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+}
+
+model InternalMark {
+  id                 String       @id @default(uuid()) @db.VarChar(36)
+  studentId          String       @db.VarChar(36)
+  subjectId          String       @db.VarChar(36)
+  examType           String       @db.VarChar(50)
+  maxMarks           Float        @default(50.0)
+  marksObtained      Float        @default(0.0)
+  remarks            String?      @db.VarChar(255)
+  enteredByFacultyId String?      @db.VarChar(36)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  student            Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject            Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+}
+
+model SemesterResult {
+  id            String       @id @default(uuid()) @db.VarChar(36)
+  studentId     String       @db.VarChar(36)
+  semester      Int
+  totalCredits  Int          @default(24)
+  earnedCredits Int          @default(24)
+  gpa           Float        @default(0.0)
+  cgpa          Float        @default(0.0)
+  resultStatus  String       @default("PASS") @db.VarChar(20)
+  publishedDate DateTime     @default(now())
+  remarks       String?      @db.VarChar(255)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Timetable {
+  id           String      @id @default(uuid()) @db.VarChar(36)
+  departmentId String      @db.VarChar(36)
+  courseId     String      @db.VarChar(36)
+  semester     Int         @default(1)
+  section      String      @default("A") @db.VarChar(10)
+  dayOfWeek    String      @db.VarChar(20)
+  startTime    String      @db.VarChar(20)
+  endTime      String      @db.VarChar(20)
+  subjectId    String      @db.VarChar(36)
+  facultyId    String      @db.VarChar(36)
+  roomNumber   String      @db.VarChar(50)
+  isLab        Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  course       Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject      Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty      Faculty     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+}
+
+model Examination {
+  id           String      @id @default(uuid()) @db.VarChar(36)
+  examName     String      @db.VarChar(150)
+  semester     Int
+  academicYear String      @db.VarChar(30)
+  subjectId    String      @db.VarChar(36)
+  examDate     DateTime
+  startTime    String      @db.VarChar(20)
+  endTime      String      @db.VarChar(20)
+  venue        String      @db.VarChar(100)
+  maxMarks     Float       @default(100.0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  subject      Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id            String                 @id @default(uuid()) @db.VarChar(36)
+  title         String                 @db.VarChar(200)
+  description   String                 @db.Text
+  subjectId     String                 @db.VarChar(36)
+  facultyId     String                 @db.VarChar(36)
+  departmentId  String                 @db.VarChar(36)
+  semester      Int
+  section       String                 @default("A") @db.VarChar(10)
+  dueDate       DateTime
+  maxScore      Float                  @default(20.0)
+  attachmentUrl String?                @db.VarChar(255)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  subject       Subject                @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty       Faculty                @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  department    Department             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  submissions   AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id                 String       @id @default(uuid()) @db.VarChar(36)
+  assignmentId       String       @db.VarChar(36)
+  studentId          String       @db.VarChar(36)
+  submissionDate     DateTime     @default(now())
+  fileUrl            String?      @db.VarChar(255)
+  comments           String?      @db.Text
+  marksAwarded       Float?
+  feedback           String?      @db.Text
+  status             String       @default("SUBMITTED") @db.VarChar(20)
+  gradedByFacultyId  String?      @db.VarChar(36)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  assignment         Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student            Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id                   String              @id @default(uuid()) @db.VarChar(36)
+  title                String              @db.VarChar(200)
+  description          String              @db.Text
+  category             String              @db.VarChar(50)
+  venue                String              @db.VarChar(150)
+  eventDate            DateTime
+  endDate              DateTime?
+  maxParticipants      Int                 @default(100)
+  registrationDeadline DateTime?
+  organizerName        String              @db.VarChar(100)
+  organizerEmail       String?             @db.VarChar(191)
+  contactPhone         String?             @db.VarChar(20)
+  bannerUrl            String?             @db.VarChar(255)
+  isPublished          Boolean             @default(true)
+  createdByUserId      String              @db.VarChar(36)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  createdByUser        User                @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  registrations        EventRegistration[]
+  certificates         Certificate[]
+}
+
+model EventRegistration {
+  id                String       @id @default(uuid()) @db.VarChar(36)
+  eventId           String       @db.VarChar(36)
+  userId            String       @db.VarChar(36)
+  registrationDate  DateTime     @default(now())
+  status            String       @default("REGISTERED") @db.VarChar(20)
+  certificateIssued Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model Placement {
+  id                  String                 @id @default(uuid()) @db.VarChar(36)
+  companyName         String                 @db.VarChar(150)
+  companyLogo         String?                @db.VarChar(255)
+  website             String?                @db.VarChar(255)
+  jobTitle            String                 @db.VarChar(150)
+  jobType             String                 @default("FULL_TIME") @db.VarChar(50)
+  location            String                 @db.VarChar(100)
+  salaryPackage       String                 @db.VarChar(100)
+  stipend             String?                @db.VarChar(100)
+  description         String                 @db.Text
+  eligibilityCriteria String                 @db.Text
+  minCgpa             Float                  @default(6.5)
+  allowedDepartments String                 @db.VarChar(255)
+  passingYear         Int                    @default(2027)
+  driveDate           DateTime
+  lastDateToApply     DateTime
+  status              String                 @default("ACTIVE") @db.VarChar(30)
+  createdByUserId     String                 @db.VarChar(36)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  createdByUser       User                   @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  applications        PlacementApplication[]
+}
+
+model PlacementApplication {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  placementId     String       @db.VarChar(36)
+  studentId       String       @db.VarChar(36)
+  applicationDate DateTime     @default(now())
+  resumeUrl       String?      @db.VarChar(255)
+  status          String       @default("APPLIED") @db.VarChar(30)
+  interviewDate   DateTime?
+  roundDetails    String?      @db.Text
+  notes           String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  placement       Placement    @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  student         Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([placementId, studentId])
+}
+
+model LibraryBook {
+  id              String            @id @default(uuid()) @db.VarChar(36)
+  isbn            String            @unique @db.VarChar(50)
+  title           String            @db.VarChar(200)
+  author          String            @db.VarChar(150)
+  category        String            @db.VarChar(100)
+  publisher       String?           @db.VarChar(150)
+  edition         String?           @db.VarChar(50)
+  publicationYear Int?
+  totalCopies     Int               @default(5)
+  availableCopies Int               @default(5)
+  shelfLocation   String            @db.VarChar(100)
+  coverImageUrl   String?           @db.VarChar(255)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  transactions    BookTransaction[]
+}
+
+model BookTransaction {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  bookId         String       @db.VarChar(36)
+  userId         String       @db.VarChar(36)
+  issueDate      DateTime     @default(now())
+  dueDate        DateTime
+  returnDate     DateTime?
+  fineAmount     Float        @default(0.0)
+  status         String       @default("ISSUED") @db.VarChar(20)
+  issuedByUserId String?      @db.VarChar(36)
+  remarks        String?      @db.VarChar(255)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  book           LibraryBook  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CampusFacility {
+  id            String       @id @default(uuid()) @db.VarChar(36)
+  name          String       @db.VarChar(150)
+  category      String       @db.VarChar(50)
+  description   String       @db.Text
+  location      String       @db.VarChar(150)
+  contactPerson String?      @db.VarChar(100)
+  contactPhone  String?      @db.VarChar(20)
+  capacity      Int?
+  details       String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model ServiceRequest {
+  id                  String       @id @default(uuid()) @db.VarChar(36)
+  requestNumber       String       @unique @db.VarChar(50)
+  category            String       @db.VarChar(50)
+  title               String       @db.VarChar(200)
+  description         String       @db.Text
+  location            String       @db.VarChar(150)
+  priority            String       @default("MEDIUM") @db.VarChar(20)
+  status              String       @default("PENDING") @db.VarChar(20)
+  requestedByUserId   String       @db.VarChar(36)
+  assignedToStaffName String?      @db.VarChar(100)
+  resolutionNotes     String?      @db.Text
+  resolvedAt          DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  requestedByUser     User         @relation(fields: [requestedByUserId], references: [id], onDelete: Cascade)
+}
+
+model GrievanceComplaint {
+  id                   String       @id @default(uuid()) @db.VarChar(36)
+  complaintNumber      String       @unique @db.VarChar(50)
+  category             String       @db.VarChar(50)
+  subject              String       @db.VarChar(200)
+  description          String       @db.Text
+  isAnonymous          Boolean      @default(false)
+  complainantUserId    String       @db.VarChar(36)
+  status               String       @default("PENDING") @db.VarChar(20)
+  resolution           String?      @db.Text
+  actionTakenByUserId  String?      @db.VarChar(36)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  complainantUser      User         @relation(fields: [complainantUserId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id           String       @id @default(uuid()) @db.VarChar(36)
+  title        String       @db.VarChar(200)
+  content      String       @db.Text
+  category     String       @default("GENERAL") @db.VarChar(50)
+  priority     String       @default("NORMAL") @db.VarChar(20)
+  targetRole   String       @default("ALL") @db.VarChar(30)
+  departmentId String?      @db.VarChar(36)
+  isPinned     Boolean      @default(false)
+  expiresAt    DateTime?
+  authorUserId String       @db.VarChar(36)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  author       User         @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String       @id @default(uuid()) @db.VarChar(36)
+  userId    String       @db.VarChar(36)
+  title     String       @db.VarChar(200)
+  message   String       @db.Text
+  type      String       @default("INFO") @db.VarChar(20)
+  link      String?      @db.VarChar(255)
+  isRead    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Certificate {
+  id                 String       @id @default(uuid()) @db.VarChar(36)
+  certificateNumber  String       @unique @db.VarChar(50)
+  title              String       @db.VarChar(200)
+  issuedToStudentId  String       @db.VarChar(36)
+  eventId            String?      @db.VarChar(36)
+  issueDate          DateTime     @default(now())
+  certificateUrl     String?      @db.VarChar(255)
+  verifyingAuthority String       @default("Dean of Student Affairs") @db.VarChar(150)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  student            Student      @relation(fields: [issuedToStudentId], references: [id], onDelete: Cascade)
+  event              Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id         String       @id @default(uuid()) @db.VarChar(36)
+  userId     String?      @db.VarChar(36)
+  userEmail  String?      @db.VarChar(191)
+  action     String       @db.VarChar(50)
+  entity     String       @db.VarChar(50)
+  entityId   String?      @db.VarChar(50)
+  details    String?      @db.Text
+  ipAddress  String?      @db.VarChar(45)
+  createdAt  DateTime     @default(now())
+
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

@@ -1,0 +1,388 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS & AUTHENTICATION ABSTRACTIONS
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Retrieve cached token role or read from user document
+    function getUserRole() {
+      return request.auth.token.role != null
+        ? request.auth.token.role
+        : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            : null);
+    }
+
+    function getUserDepartment() {
+      return request.auth.token.departmentId != null
+        ? request.auth.token.departmentId
+        : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.departmentId
+            : null);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'Administrator';
+    }
+
+    function isHOD() {
+      return isAuthenticated() && (getUserRole() == 'HOD' || isAdmin());
+    }
+
+    function isFaculty() {
+      return isAuthenticated() && (getUserRole() == 'Faculty' || isHOD());
+    }
+
+    function isStudent() {
+      return isAuthenticated() && getUserRole() == 'Student';
+    }
+
+    function isPlacementOfficer() {
+      return isAuthenticated() && (getUserRole() == 'Placement Officer' || isAdmin());
+    }
+
+    function isLibrarian() {
+      return isAuthenticated() && (getUserRole() == 'Librarian' || isAdmin());
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (getUserRole() == 'Staff' || isAdmin());
+    }
+
+    // Prevent privilege escalation: Users cannot promote themselves to Administrator or HOD
+    function isModifyingPrivilegedFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'accountStatus', 'uid', 'email']);
+    }
+
+    // =========================================================================
+    // A. USERS COLLECTION
+    // =========================================================================
+    match /users/{userId} {
+      // Any authenticated user can read basic user directory; owners and admins read full profile
+      allow read: if isAuthenticated();
+
+      // New users can create their own document on registration, but NEVER with privileged roles
+      allow create: if isAuthenticated() && request.auth.uid == userId && (
+        request.resource.data.role in ['Student', 'Faculty', 'Staff'] &&
+        request.resource.data.accountStatus == 'Active' &&
+        request.resource.data.uid == userId
+      ) || isAdmin();
+
+      // Users can update their personal details (phone, profile image); only Admin can change role/status
+      allow update: if (isOwner(userId) && !isModifyingPrivilegedFields()) || isAdmin();
+
+      // Deletion strictly limited to Administrator
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // B. STUDENTS COLLECTION
+    // =========================================================================
+    match /students/{studentId} {
+      // Student can read own academic profile; Faculty, HOD, Admin, and Placement Officer can view
+      allow read: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid ||
+        isFaculty() ||
+        isPlacementOfficer()
+      );
+
+      // Creation strictly via Administrator, HOD or trusted Cloud Functions
+      allow create: if isAdmin() || isHOD();
+
+      // Student can update only permitted portfolio/profile fields
+      allow update: if (
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['skills', 'certifications', 'projects', 'achievements', 'address', 'guardianContact', 'phoneNumber', 'profileImage', 'updatedAt'])
+      ) || isAdmin() || isHOD();
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // C. FACULTY COLLECTION
+    // =========================================================================
+    match /faculty/{facultyId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if (
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['phoneNumber', 'profileImage', 'availability', 'updatedAt'])
+      ) || isAdmin() || isHOD();
+    }
+
+    // =========================================================================
+    // D. DEPARTMENTS COLLECTION
+    // =========================================================================
+    match /departments/{departmentId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isHOD() && getUserDepartment() == departmentId);
+    }
+
+    // =========================================================================
+    // E. ATTENDANCE COLLECTION
+    // =========================================================================
+    match /attendance/{attendanceId} {
+      // Student reads their own records; Faculty, HOD and Admin read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.uid == request.auth.uid ||
+        isFaculty()
+      );
+
+      // Only Faculty, HOD and Administrator can log or alter attendance
+      allow create, update: if isFaculty();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // F. ACADEMIC RECORDS COLLECTION
+    // =========================================================================
+    match /academic_records/{recordId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isFaculty()
+      );
+      allow create, update: if isFaculty();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // G. COURSES AND SUBJECTS COLLECTIONS
+    // =========================================================================
+    match /courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isHOD();
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isHOD();
+    }
+
+    // =========================================================================
+    // H. TIMETABLES COLLECTION
+    // =========================================================================
+    match /timetables/{timetableId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isHOD() || isFaculty();
+    }
+
+    // =========================================================================
+    // I. ASSIGNMENTS & SUBMISSIONS COLLECTIONS
+    // =========================================================================
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isFaculty();
+    }
+
+    match /submissions/{submissionId} {
+      // Student reads own submission; Faculty reads submissions for grading
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isFaculty()
+      );
+
+      // Student can submit their assignment
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+
+      // Student can update submittedFileUrl before deadline; Faculty updates marks/feedback
+      allow update: if (
+        resource.data.studentId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['submittedFileUrl', 'submissionDate', 'status'])
+      ) || isFaculty();
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // J. EVENTS & REGISTRATIONS COLLECTIONS
+    // =========================================================================
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isFaculty() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /event_registrations/{regId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isFaculty()
+      );
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAdmin() || (
+        resource.data.studentId == request.auth.uid
+      );
+    }
+
+    // =========================================================================
+    // K. PLACEMENT & INTERNSHIP COLLECTIONS
+    // =========================================================================
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlacementOfficer();
+    }
+
+    match /placements/{placementId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlacementOfficer();
+    }
+
+    match /internships/{internshipId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlacementOfficer();
+    }
+
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isPlacementOfficer()
+      );
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isPlacementOfficer() || (
+        resource.data.studentId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resumeUrl', 'updatedAt'])
+      );
+      allow delete: if isAdmin() || (
+        resource.data.studentId == request.auth.uid && resource.data.status == 'Applied'
+      );
+    }
+
+    // =========================================================================
+    // L. LIBRARY COLLECTIONS
+    // =========================================================================
+    match /library_books/{bookId} {
+      allow read: if isAuthenticated();
+      allow write: if isLibrarian();
+    }
+
+    match /book_transactions/{txId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isLibrarian()
+      );
+      allow write: if isLibrarian();
+    }
+
+    // =========================================================================
+    // M. FACILITIES COLLECTIONS
+    // =========================================================================
+    match /hostels/{hostelId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+
+    match /transport/{routeId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+
+    match /laboratories/{labId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff() || isHOD();
+    }
+
+    match /maintenance_requests/{reqId} {
+      allow read: if isAuthenticated() && (
+        resource.data.reportedBy == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated() && request.resource.data.reportedBy == request.auth.uid;
+      allow update, delete: if isStaff();
+    }
+
+    match /service_requests/{reqId} {
+      allow read: if isAuthenticated() && (
+        resource.data.requestedBy == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated() && request.resource.data.requestedBy == request.auth.uid;
+      allow update, delete: if isStaff();
+    }
+
+    // =========================================================================
+    // N. COMPLAINTS & FEEDBACK COLLECTIONS
+    // =========================================================================
+    match /complaints/{complaintId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        isHOD()
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || isHOD();
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin() || isHOD();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // O. NOTIFICATIONS & ANNOUNCEMENTS COLLECTIONS
+    // =========================================================================
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.targetRole == 'All' ||
+        resource.data.targetRole == getUserRole() ||
+        resource.data.targetUserId == request.auth.uid
+      );
+      allow write: if isAdmin() || isFaculty();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isHOD() || isFaculty();
+    }
+
+    // =========================================================================
+    // P. ACHIEVEMENTS & CERTIFICATES COLLECTIONS
+    // =========================================================================
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        isFaculty()
+      );
+      allow update, delete: if isFaculty() || isAdmin();
+    }
+
+    match /certificates/{certificateId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isFaculty() ||
+        isPlacementOfficer()
+      );
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+      // Verification status only updatable by Faculty/Admin
+      allow update: if isFaculty() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // Q. AUDIT LOGS (IMMUTABLE - WRITE ONLY VIA ADMIN/FUNCTIONS)
+    // =========================================================================
+    match /audit_logs/{logId} {
+      // Strictly readable by Administrator
+      allow read: if isAdmin();
+
+      // Client direct writes prohibited. All audit logging must occur via Firebase Admin SDK or Cloud Functions
+      allow write: if false;
+    }
+  }
+}

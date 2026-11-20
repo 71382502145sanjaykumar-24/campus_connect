@@ -1,0 +1,40 @@
+{
+  "name": "campusconnect-college-db",
+  "version": "1.0.0",
+  "description": "Centralized, Scalable & Secure Firebase Cloud Database Architecture for CampusConnect College Management System",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "seed": "tsx scripts/seed.ts",
+    "verify": "tsx scripts/verify-db.ts",
+    "export-data": "tsx scripts/export-backup.ts",
+    "import-data": "tsx scripts/import-data.ts",
+    "migrate-sql": "tsx scripts/migrate-from-sql.ts",
+    "emulators": "firebase emulators:start",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:all": "firebase deploy"
+  },
+  "keywords": [
+    "campusconnect",
+    "firebase",
+    "firestore",
+    "college-management",
+    "database-architecture",
+    "security-rules",
+    "cloud-functions"
+  ],
+  "author": "CampusConnect Team",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "firebase-tools": "^13.4.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}
