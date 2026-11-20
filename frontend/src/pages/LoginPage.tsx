@@ -12,13 +12,8 @@ import {
   KeyRound,
   CheckCircle2,
   AlertCircle,
-  GraduationCap,
-  Building2,
   School,
   X,
-  User,
-  Phone,
-  Hash,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
 
